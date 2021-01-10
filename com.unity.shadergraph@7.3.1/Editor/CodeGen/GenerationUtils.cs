@@ -796,8 +796,8 @@ namespace UnityEditor.ShaderGraph
             var vertexBuilder = new ShaderStringBuilder();
 
             // If vertex modification enabled
-            //if (pass.vertexPorts.Count > 0)
-            if (activeFields.baseInstance.Contains("features.graphVertex"))
+            if (pass.vertexPorts.Count > 0)
+            //if (activeFields.baseInstance.Contains("features.graphVertex"))
             {
                 // Setup
                 string vertexGraphInputName = "VertexDescriptionInputs";
