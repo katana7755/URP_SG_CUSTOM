@@ -244,5 +244,12 @@ namespace UnityEditor.ShaderGraph
             }
             return validSlots.OfType<IMayRequireTangent>().Aggregate(NeededCoordinateSpace.None, (mask, node) => mask | node.RequiresTangent(stageCapability));
         }
+
+        public void GetPartialCodesFromSlots(out string[] slotNames, out string[] codes)
+        {
+            var pbrSubShader = GetActiveSubShader() as IPBRSubShader;
+
+            pbrSubShader.GetPartialCodesFromSlots(this, out slotNames, out codes);
+        }
     }
 }

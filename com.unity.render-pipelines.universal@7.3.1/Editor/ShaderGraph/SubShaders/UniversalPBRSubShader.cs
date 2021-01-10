@@ -510,6 +510,134 @@ namespace UnityEditor.Rendering.Universal
             return renderPipelineAsset is UniversalRenderPipelineAsset;
         }
 
+        private static readonly string[] FORWARDPASS_VERTEXPORT_NAMES =
+        {
+            PBRMasterNode.PositionName,
+            PBRMasterNode.NormalName,
+            PBRMasterNode.TangentName,
+        };
+
+        private static readonly string[] FORWARDPASS_PIXELPORT_NAMES =
+        {
+            PBRMasterNode.AlbedoSlotName,
+            PBRMasterNode.NormalSlotName,
+            PBRMasterNode.EmissionSlotName,
+            PBRMasterNode.MetallicSlotName,
+            PBRMasterNode.SpecularSlotName,
+            PBRMasterNode.SmoothnessSlotName,
+            PBRMasterNode.OcclusionSlotName,
+            PBRMasterNode.AlphaSlotName,
+            PBRMasterNode.AlphaClipThresholdSlotName,
+        };
+
+        public void GetPartialCodesFromSlots(IMasterNode masterNode, out string[] slotNames, out string[] codes)
+        {            
+            // Master Node data
+            var pbrMasterNode = masterNode as PBRMasterNode;
+            var emptyList = new List<int>();
+            slotNames = new string[m_ForwardPass.vertexPorts.Count + m_ForwardPass.pixelPorts.Count];
+            codes = new string[m_ForwardPass.vertexPorts.Count + m_ForwardPass.pixelPorts.Count];
+
+            for (var i = 0; i < m_ForwardPass.vertexPorts.Count; ++i)
+            {                
+                slotNames[i] = FORWARDPASS_VERTEXPORT_NAMES[i];
+                codes[i] = GeneratePartialForwardPassString(pbrMasterNode, new List<int>(){ m_ForwardPass.vertexPorts[i] }, emptyList);
+            }
+
+            for (var i = 0; i < m_ForwardPass.pixelPorts.Count; ++i)
+            {                
+                slotNames[m_ForwardPass.vertexPorts.Count + i] = FORWARDPASS_PIXELPORT_NAMES[i];
+                codes[m_ForwardPass.vertexPorts.Count + i] = GeneratePartialForwardPassString(pbrMasterNode, emptyList, new List<int>(){ m_ForwardPass.pixelPorts[i] });
+            }
+        }
+
+        private string GeneratePartialForwardPassString(PBRMasterNode pbrMasterNode, List<int> vertexPorts, List<int> pixelPorts)
+        {
+            var pass = CreatePartialForwardPass(vertexPorts, pixelPorts);
+            var subShader = new ShaderGenerator();
+            GenerateShaderPassButOnlyDescriptions(pbrMasterNode, pass, GenerationMode.ForReals, subShader, null);
+
+            return subShader.GetShaderString(0);
+        }
+
+        private ShaderPass CreatePartialForwardPass(List<int> partialVertexPorts, List<int> PartialPixelPorts)
+        {
+            return new ShaderPass
+            {
+                // Definition
+                displayName = "Universal Forward",
+                referenceName = "SHADERPASS_FORWARD",
+                lightMode = "UniversalForward",
+                passInclude = "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/PBRForwardPass.hlsl",
+                varyingsInclude = "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/Varyings.hlsl",
+                useInPreview = true,
+
+                // Port mask
+                vertexPorts = partialVertexPorts,
+                pixelPorts = PartialPixelPorts,
+
+                // Required fields
+                requiredAttributes = new List<string>()
+                {
+                    "Attributes.uv1", //needed for meta vertex position
+                },
+
+                // Required fields
+                requiredVaryings = new List<string>()
+                {
+                    "Varyings.positionWS",
+                    "Varyings.normalWS",
+                    "Varyings.tangentWS", //needed for vertex lighting
+                    "Varyings.viewDirectionWS",
+                    "Varyings.lightmapUV",
+                    "Varyings.sh",
+                    "Varyings.fogFactorAndVertexLight", //fog and vertex lighting, vert input is dependency
+                    "Varyings.shadowCoord", //shadow coord, vert input is dependency
+                },
+
+                // Pass setup
+                includes = new List<string>()
+                {
+                    "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl",
+                    "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl",
+                    "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl",
+                    "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl",
+                    "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderGraphFunctions.hlsl",
+                    "Packages/com.unity.shadergraph/ShaderGraphLibrary/ShaderVariablesFunctions.hlsl"
+                },
+                pragmas = new List<string>()
+                {
+                    "prefer_hlslcc gles",
+                    "exclude_renderers d3d11_9x",
+                    "target 2.0",
+                    "multi_compile_fog",
+                    "multi_compile_instancing",
+                },
+                keywords = new KeywordDescriptor[]
+                {
+                    s_LightmapKeyword,
+                    s_DirectionalLightmapCombinedKeyword,
+                    s_MainLightShadowsKeyword,
+                    s_MainLightShadowsCascadeKeyword,
+                    s_AdditionalLightsKeyword,
+                    s_AdditionalLightShadowsKeyword,
+                    s_ShadowsSoftKeyword,
+                    s_MixedLightingSubtractiveKeyword,
+                },
+            };
+        }
+
+        bool GenerateShaderPassButOnlyDescriptions(PBRMasterNode masterNode, ShaderPass pass, GenerationMode mode, ShaderGenerator result, List<string> sourceAssetDependencyPaths)
+        {
+            UniversalShaderGraphUtilities.SetRenderState(masterNode.surfaceType, masterNode.alphaMode, masterNode.twoSided.isOn, ref pass);
+
+            // apply master node options to active fields
+            var activeFields = GetActiveFieldsFromMasterNode(masterNode, pass);
+
+            return ShaderGraph.GenerationUtils.GenerateShaderPassButOnlyDescriptions(masterNode, pass, mode, activeFields, result, sourceAssetDependencyPaths,
+                UniversalShaderGraphResources.s_Dependencies, UniversalShaderGraphResources.s_ResourceClassName, UniversalShaderGraphResources.s_AssemblyName);
+        }
+
         public UniversalPBRSubShader() { }
     }
 }

@@ -22,6 +22,32 @@ namespace UnityEditor.ShaderGraph
                 ShowGraphEditWindow(importer.assetPath);
             }
 
+            if (GUILayout.Button("PBRExtTest - Extract Codes From Slots"))
+            {                
+                AssetImporter importer = target as AssetImporter;
+                Debug.Assert(importer != null, "importer != null");
+
+                var path = EditorUtility.OpenFolderPanel("Choose folder for extracting", "", "");
+
+                if (!string.IsNullOrEmpty(path))
+                {
+                    PBRExtensionUtility.ExtractPartialCodesFromSlots(importer.assetPath, path);
+                }                
+            }
+
+            if (GUILayout.Button("PBRExtTest - Extract Shader Code"))
+            {                
+                AssetImporter importer = target as AssetImporter;
+                Debug.Assert(importer != null, "importer != null");
+
+                var path = EditorUtility.OpenFolderPanel("Choose folder for extracting", "", "");
+
+                if (!string.IsNullOrEmpty(path))
+                {
+                    PBRExtensionUtility.ExtractShaderCode(importer.assetPath, path);
+                }                
+            }
+
             ApplyRevertGUI();
         }
 
