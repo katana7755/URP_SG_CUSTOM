@@ -52,7 +52,7 @@ namespace UnityEditor.ShaderGraph
                 return;
             }
             
-            var pbrMasterNode = GetPBRMasterNode(assetPath);
+            var pbrMasterNode = GetPBRMasterNode(assetPath, withErrorMsg);
 
             if (pbrMasterNode == null)
             {
@@ -70,6 +70,28 @@ namespace UnityEditor.ShaderGraph
             List<PropertyCollector.TextureInfo> textureInfo;
             var result = pbrMasterNode.GetShader(GenerationMode.ForReals, shaderName, out textureInfo);
             File.WriteAllText($"{outputDirPath}/{shaderName}_Generated.txt", result);
+        }
+
+        [MenuItem("PBRExtTest/Extract All")]
+        public static void ExtractAllPBRMasterNodes()
+        {   
+            var outputPath = EditorUtility.OpenFolderPanel("Choose folder for extracting", "", "");
+
+            if (string.IsNullOrEmpty(outputPath))
+            {
+                return;
+            }
+
+            // because '.shadergraph' extension is not registered in AssetDatabase, we use '.shader' instead
+            // although these are not a perfect solution, it is ok-ish as the utility functions can filter out not-shadergraph shaders
+            var guids = AssetDatabase.FindAssets("t:shader");
+
+            foreach (var guid in guids)
+            {
+                var assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                ExtractPartialCodesFromSlots(assetPath, outputPath, false);
+                ExtractShaderCode(assetPath, outputPath, false);
+            }
         }
 
         private static PBRMasterNode GetPBRMasterNode(string assetPath, bool withErrorMsg = true)
